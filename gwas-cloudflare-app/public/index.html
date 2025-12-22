@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GWAS Explorer | Genome-Wide Association Study Visualization</title>
+    <meta name="description" content="Interactive GWAS visualization platform with Manhattan plots, QQ plots, and ML-powered polygenic risk score prediction">
+    
+    <!-- Fonts: Scientific yet modern -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
+    
+    <!-- D3.js for visualizations -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <!-- TensorFlow.js for ML inference -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    
+    <!-- LocusZoom.js for regional plots -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/locuszoom@0.14.0/dist/locuszoom.css">
+    <script src="https://cdn.jsdelivr.net/npm/locuszoom@0.14.0/dist/locuszoom.app.min.js"></script>
+    
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-animation">
+        <div class="helix-strand strand-1"></div>
+        <div class="helix-strand strand-2"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="nav-brand">
+            <div class="dna-icon">
+                <span></span><span></span><span></span>
+            </div>
+            <h1>GWAS<span class="accent">Explorer</span></h1>
+        </div>
+        <div class="nav-links">
+            <a href="#manhattan" class="nav-link active">Manhattan Plot</a>
+            <a href="#qq" class="nav-link">QQ Plot</a>
+            <a href="#locus" class="nav-link">Locus Zoom</a>
+            <a href="#prs" class="nav-link">PRS Calculator</a>
+        </div>
+        <div class="nav-actions">
+            <button id="btn-simulate" class="btn btn-outline">
+                <span class="btn-icon">⟳</span>
+                Simulate GWAS
+            </button>
+            <button id="btn-upload" class="btn btn-primary">
+                <span class="btn-icon">↑</span>
+                Upload Data
+            </button>
+            <input type="file" id="file-input" accept=".json,.csv,.txt" hidden>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero-section">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="pulse"></span>
+                Interactive Genomics Platform
+            </div>
+            <h2 class="hero-title">
+                Visualize <span class="gradient-text">Genome-Wide</span><br>
+                Association Studies
+            </h2>
+            <p class="hero-subtitle">
+                Explore genetic associations with interactive Manhattan plots, QQ plots, 
+                and machine learning-powered polygenic risk score predictions.
+            </p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-value" id="stat-snps">0</span>
+                    <span class="stat-label">SNPs Analyzed</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="stat-sig">0</span>
+                    <span class="stat-label">Significant Loci</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="stat-lambda">-</span>
+                    <span class="stat-label">Genomic Inflation (λ)</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="chromosome-preview" id="chromosome-preview"></div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- Manhattan Plot Section -->
+        <section id="manhattan" class="section">
+            <div class="section-header">
+                <div class="section-title-group">
+                    <span class="section-number">01</span>
+                    <h3 class="section-title">Manhattan Plot</h3>
+                </div>
+                <p class="section-description">
+                    Genome-wide visualization of association p-values across all chromosomes.
+                    Hover over points to see SNP details, click to zoom into a region.
+                </p>
+            </div>
+            
+            <div class="plot-container">
+                <div class="plot-toolbar">
+                    <div class="toolbar-group">
+                        <label class="toolbar-label">Significance Threshold</label>
+                        <div class="threshold-controls">
+                            <button class="threshold-btn" data-threshold="5e-8">5×10⁻⁸</button>
+                            <button class="threshold-btn active" data-threshold="1e-5">1×10⁻⁵</button>
+                            <button class="threshold-btn" data-threshold="1e-3">1×10⁻³</button>
+                        </div>
+                    </div>
+                    <div class="toolbar-group">
+                        <label class="toolbar-label">Color Scheme</label>
+                        <select id="color-scheme" class="select-input">
+                            <option value="alternating">Alternating</option>
+                            <option value="gradient">Gradient</option>
+                            <option value="significance">By Significance</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-group">
+                        <button id="btn-reset-zoom" class="btn btn-small">Reset Zoom</button>
+                        <button id="btn-download-manhattan" class="btn btn-small">
+                            <span>↓</span> Export SVG
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="plot-wrapper">
+                    <div id="manhattan-plot" class="plot"></div>
+                    <div class="plot-loading" id="manhattan-loading">
+                        <div class="loader"></div>
+                        <span>Rendering visualization...</span>
+                    </div>
+                </div>
+                
+                <!-- SNP Info Panel -->
+                <div class="info-panel" id="snp-info-panel">
+                    <button class="info-panel-close" id="close-snp-panel">×</button>
+                    <h4 class="info-panel-title">SNP Details</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">SNP ID</span>
+                            <span class="info-value" id="info-snp-id">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Chromosome</span>
+                            <span class="info-value" id="info-chr">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Position</span>
+                            <span class="info-value" id="info-pos">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">P-value</span>
+                            <span class="info-value" id="info-pval">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">-log₁₀(P)</span>
+                            <span class="info-value" id="info-logp">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">MAF</span>
+                            <span class="info-value" id="info-maf">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Effect Size (β)</span>
+                            <span class="info-value" id="info-beta">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Nearest Gene</span>
+                            <span class="info-value" id="info-gene">-</span>
+                        </div>
+                    </div>
+                    <div class="info-actions">
+                        <button class="btn btn-small btn-primary" id="btn-zoom-locus">
+                            View in LocusZoom
+                        </button>
+                        <a href="#" class="btn btn-small" id="btn-external-link" target="_blank">
+                            Open in Ensembl →
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- QQ Plot Section -->
+        <section id="qq" class="section">
+            <div class="section-header">
+                <div class="section-title-group">
+                    <span class="section-number">02</span>
+                    <h3 class="section-title">Quantile-Quantile Plot</h3>
+                </div>
+                <p class="section-description">
+                    Compare observed vs expected p-value distribution to assess population stratification
+                    and identify true associations above the null expectation.
+                </p>
+            </div>
+            
+            <div class="plot-container qq-container">
+                <div class="qq-plot-wrapper">
+                    <div id="qq-plot" class="plot"></div>
+                </div>
+                <div class="qq-stats-panel">
+                    <h4 class="stats-title">Quality Metrics</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-card-value" id="qq-lambda">-</div>
+                            <div class="stat-card-label">Genomic Inflation Factor (λ)</div>
+                            <div class="stat-card-status" id="qq-lambda-status">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value" id="qq-lambda-1000">-</div>
+                            <div class="stat-card-label">λ₁₀₀₀ (scaled)</div>
+                            <div class="stat-card-status" id="qq-lambda-1000-status">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value" id="qq-mean-chi2">-</div>
+                            <div class="stat-card-label">Mean χ²</div>
+                            <div class="stat-card-status">Expected: 1.0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value" id="qq-deviation">-</div>
+                            <div class="stat-card-label">Tail Deviation</div>
+                            <div class="stat-card-status" id="qq-deviation-status">-</div>
+                        </div>
+                    </div>
+                    <div class="interpretation-box">
+                        <h5>Interpretation</h5>
+                        <p id="qq-interpretation">
+                            Load GWAS data to see quality metrics and interpretation.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LocusZoom Section -->
+        <section id="locus" class="section">
+            <div class="section-header">
+                <div class="section-title-group">
+                    <span class="section-number">03</span>
+                    <h3 class="section-title">Regional Association Plot</h3>
+                </div>
+                <p class="section-description">
+                    Explore specific genomic regions with LD information, gene annotations, 
+                    and recombination rates. Select a significant locus from the Manhattan plot.
+                </p>
+            </div>
+            
+            <div class="locus-container">
+                <div class="locus-controls">
+                    <div class="control-group">
+                        <label class="control-label">Region</label>
+                        <div class="region-input-group">
+                            <select id="locus-chr" class="select-input">
+                                <option value="">Chr</option>
+                            </select>
+                            <input type="text" id="locus-start" class="text-input" placeholder="Start (bp)">
+                            <span class="separator">-</span>
+                            <input type="text" id="locus-end" class="text-input" placeholder="End (bp)">
+                            <button id="btn-view-region" class="btn btn-primary">View Region</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Quick Jump</label>
+                        <div class="quick-loci" id="quick-loci">
+                            <span class="empty-state">Significant loci will appear here</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="locus-plot-wrapper">
+                    <div id="locus-zoom-plot" class="locus-plot">
+                        <div class="locus-placeholder">
+                            <div class="placeholder-icon">🔍</div>
+                            <p>Select a region to visualize</p>
+                            <span>Click on a significant SNP in the Manhattan plot or enter coordinates above</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PRS Calculator Section -->
+        <section id="prs" class="section">
+            <div class="section-header">
+                <div class="section-title-group">
+                    <span class="section-number">04</span>
+                    <h3 class="section-title">Polygenic Risk Score Calculator</h3>
+                </div>
+                <p class="section-description">
+                    Calculate polygenic risk scores using machine learning. The model runs entirely 
+                    in your browser using TensorFlow.js — your data never leaves your device.
+                </p>
+            </div>
+            
+            <div class="prs-container">
+                <div class="prs-input-panel">
+                    <div class="model-status" id="model-status">
+                        <div class="status-indicator loading"></div>
+                        <span>Loading ML model...</span>
+                    </div>
+                    
+                    <div class="prs-tabs">
+                        <button class="prs-tab active" data-tab="manual">Manual Entry</button>
+                        <button class="prs-tab" data-tab="simulate">Simulate Genotypes</button>
+                        <button class="prs-tab" data-tab="upload">Upload VCF</button>
+                    </div>
+                    
+                    <div class="prs-tab-content active" id="tab-manual">
+                        <p class="tab-description">
+                            Enter genotype dosages (0, 1, or 2) for each risk variant below.
+                        </p>
+                        <div class="genotype-grid" id="genotype-grid">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+                    
+                    <div class="prs-tab-content" id="tab-simulate">
+                        <p class="tab-description">
+                            Generate random genotypes based on population allele frequencies.
+                        </p>
+                        <div class="simulation-controls">
+                            <div class="control-row">
+                                <label>Population</label>
+                                <select id="sim-population" class="select-input">
+                                    <option value="AFR">African (AFR)</option>
+                                    <option value="EUR">European (EUR)</option>
+                                    <option value="EAS">East Asian (EAS)</option>
+                                    <option value="SAS">South Asian (SAS)</option>
+                                    <option value="AMR">American (AMR)</option>
+                                </select>
+                            </div>
+                            <button id="btn-simulate-genotypes" class="btn btn-primary btn-block">
+                                Generate Random Genotypes
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="prs-tab-content" id="tab-upload">
+                        <p class="tab-description">
+                            Upload a VCF file with genotype data. Processing happens locally in your browser.
+                        </p>
+                        <div class="upload-zone" id="vcf-upload-zone">
+                            <div class="upload-icon">📁</div>
+                            <p>Drag & drop VCF file or click to browse</p>
+                            <span class="upload-note">Supports .vcf and .vcf.gz formats</span>
+                        </div>
+                        <input type="file" id="vcf-input" accept=".vcf,.vcf.gz" hidden>
+                    </div>
+                    
+                    <button id="btn-calculate-prs" class="btn btn-primary btn-large btn-block" disabled>
+                        <span class="btn-icon">🧬</span>
+                        Calculate Polygenic Risk Score
+                    </button>
+                </div>
+                
+                <div class="prs-results-panel">
+                    <div class="prs-result-card" id="prs-result-card">
+                        <div class="result-placeholder">
+                            <div class="dna-helix-animation">
+                                <div class="helix-bar"></div>
+                                <div class="helix-bar"></div>
+                                <div class="helix-bar"></div>
+                                <div class="helix-bar"></div>
+                                <div class="helix-bar"></div>
+                            </div>
+                            <p>Enter genotypes and calculate PRS</p>
+                        </div>
+                        
+                        <div class="result-content hidden" id="prs-results">
+                            <div class="prs-score-display">
+                                <div class="score-ring" id="score-ring">
+                                    <svg viewBox="0 0 200 200">
+                                        <circle class="ring-bg" cx="100" cy="100" r="90"/>
+                                        <circle class="ring-progress" cx="100" cy="100" r="90" id="ring-progress"/>
+                                    </svg>
+                                    <div class="score-value">
+                                        <span class="score-number" id="prs-score-value">-</span>
+                                        <span class="score-label">PRS</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="prs-percentile">
+                                <div class="percentile-bar">
+                                    <div class="percentile-fill" id="percentile-fill"></div>
+                                    <div class="percentile-marker" id="percentile-marker"></div>
+                                </div>
+                                <div class="percentile-labels">
+                                    <span>Low Risk</span>
+                                    <span>Average</span>
+                                    <span>High Risk</span>
+                                </div>
+                                <p class="percentile-text">
+                                    Your score is in the <strong id="percentile-value">-</strong> percentile
+                                </p>
+                            </div>
+                            
+                            <div class="prs-breakdown">
+                                <h5>Risk Variant Contributions</h5>
+                                <div class="breakdown-chart" id="breakdown-chart"></div>
+                            </div>
+                            
+                            <div class="prs-disclaimer">
+                                <span class="disclaimer-icon">ℹ️</span>
+                                <p>
+                                    This is a demonstration tool for educational purposes. 
+                                    PRS calculations require validated models and clinical interpretation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <div class="dna-icon small">
+                    <span></span><span></span><span></span>
+                </div>
+                <span>GWAS Explorer</span>
+            </div>
+            <div class="footer-links">
+                <a href="https://github.com" target="_blank">GitHub</a>
+                <a href="#" id="footer-docs">Documentation</a>
+                <a href="#" id="footer-api">API</a>
+            </div>
+            <div class="footer-tech">
+                <span>Built with</span>
+                <div class="tech-badges">
+                    <span class="badge">D3.js</span>
+                    <span class="badge">TensorFlow.js</span>
+                    <span class="badge">Cloudflare</span>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2025 GWAS Explorer. Designed for research and education.</p>
+        </div>
+    </footer>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- Scripts -->
+    <script src="js/gwas-simulator.js"></script>
+    <script src="js/manhattan-plot.js"></script>
+    <script src="js/qq-plot.js"></script>
+    <script src="js/locuszoom-integration.js"></script>
+    <script src="js/prs-calculator.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

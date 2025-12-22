@@ -1,0 +1,37 @@
+# GWAS Explorer - Cloudflare Pages Configuration
+# https://developers.cloudflare.com/pages/platform/functions/
+
+name = "gwas-explorer"
+compatibility_date = "2024-01-01"
+
+# Pages configuration
+[build]
+command = ""  # No build step needed for static files
+
+# Static asset serving from public directory
+[site]
+bucket = "./public"
+
+# Environment variables (optional)
+[vars]
+ENVIRONMENT = "production"
+
+# Development settings
+[dev]
+port = 8788
+local_protocol = "http"
+
+# KV Namespaces for data storage (optional, uncomment if needed)
+# [[kv_namespaces]]
+# binding = "GWAS_DATA"
+# id = "your-kv-namespace-id"
+
+# Durable Objects for persistent state (optional)
+# [[durable_objects.bindings]]
+# name = "SESSIONS"
+# class_name = "SessionDO"
+
+# R2 Storage for large GWAS files (optional)
+# [[r2_buckets]]
+# binding = "GWAS_STORAGE"
+# bucket_name = "gwas-data-bucket"

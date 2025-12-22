@@ -1,0 +1,43 @@
+{
+  "name": "gwas-explorer",
+  "version": "1.0.0",
+  "description": "Interactive GWAS visualization platform with Manhattan plots, QQ plots, and ML-powered PRS calculator",
+  "type": "module",
+  "main": "public/index.html",
+  "scripts": {
+    "dev": "wrangler pages dev public --port 8788",
+    "deploy": "wrangler pages deploy public --project-name gwas-explorer",
+    "preview": "wrangler pages dev public --local",
+    "build": "echo 'No build step required for static files'",
+    "test": "echo 'Tests not configured yet'"
+  },
+  "keywords": [
+    "gwas",
+    "genomics",
+    "bioinformatics",
+    "manhattan-plot",
+    "d3js",
+    "tensorflowjs",
+    "cloudflare-pages",
+    "data-visualization",
+    "genetics",
+    "polygenic-risk-score"
+  ],
+  "author": "GWAS Explorer Team",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.22.0"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/gwas-explorer.git"
+  },
+  "homepage": "https://gwas-explorer.pages.dev",
+  "bugs": {
+    "url": "https://github.com/yourusername/gwas-explorer/issues"
+  }
+}
