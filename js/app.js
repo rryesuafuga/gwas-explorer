@@ -270,20 +270,38 @@ class GWASExplorerApp {
      * Initialize visualization components
      */
     initializeVisualizations() {
+        console.log('Initializing visualizations...');
+
         // Manhattan plot
         if (this.elements.manhattanPlot) {
-            this.manhattanPlot = new ManhattanPlot('manhattan-plot', {
-                significanceThreshold: this.significanceThreshold,
-                colorScheme: this.colorScheme
-            });
-            // Set up callbacks
-            this.manhattanPlot.onSNPClick = (snp) => this.handleSNPClick(snp);
-            this.manhattanPlot.onSNPHover = (snp, event) => this.handleSNPHover(snp, event);
+            console.log('Creating Manhattan plot, container:', this.elements.manhattanPlot);
+            try {
+                this.manhattanPlot = new ManhattanPlot('manhattan-plot', {
+                    significanceThreshold: this.significanceThreshold,
+                    colorScheme: this.colorScheme
+                });
+                // Set up callbacks
+                this.manhattanPlot.onSNPClick = (snp) => this.handleSNPClick(snp);
+                this.manhattanPlot.onSNPHover = (snp, event) => this.handleSNPHover(snp, event);
+                console.log('Manhattan plot created successfully');
+            } catch (e) {
+                console.error('Failed to create Manhattan plot:', e);
+            }
+        } else {
+            console.error('Manhattan plot container not found');
         }
 
         // QQ plot
         if (this.elements.qqPlot) {
-            this.qqPlot = new QQPlot('qq-plot', {});
+            console.log('Creating QQ plot...');
+            try {
+                this.qqPlot = new QQPlot('qq-plot', {});
+                console.log('QQ plot created successfully');
+            } catch (e) {
+                console.error('Failed to create QQ plot:', e);
+            }
+        } else {
+            console.error('QQ plot container not found');
         }
 
         // LocusZoom integration
@@ -293,20 +311,25 @@ class GWASExplorerApp {
 
         // Chromosome preview (mini visualization in hero)
         this.renderChromosomePreview();
+        console.log('Visualizations initialized');
     }
     
     /**
      * Load demo data
      */
     async loadDemoData() {
+        console.log('Loading demo data...');
         this.showLoading(true);
 
         try {
             // Simulate GWAS data using the generator
+            console.log('Generating GWAS data with simulator...');
             const result = this.simulator.generate();
+            console.log('Generated data:', result.snps?.length, 'SNPs');
             this.gwasData = result.snps;
             this.gwasMetadata = result.metadata;
             this.significantLoci = result.significantLoci;
+            console.log('Metadata:', this.gwasMetadata);
 
             // Update visualizations
             await this.updateVisualizations();
@@ -317,6 +340,7 @@ class GWASExplorerApp {
             // Populate quick loci
             this.populateQuickLoci();
 
+            console.log('Demo data loaded successfully');
         } catch (error) {
             console.error('Error loading demo data:', error);
         } finally {
@@ -376,7 +400,12 @@ class GWASExplorerApp {
      * Update all visualizations with current data
      */
     async updateVisualizations() {
-        if (!this.gwasData) return;
+        if (!this.gwasData) {
+            console.error('No GWAS data available');
+            return;
+        }
+
+        console.log('Updating visualizations with', this.gwasData.length, 'SNPs');
 
         // Prepare data in format expected by visualizations
         const plotData = {
@@ -386,7 +415,11 @@ class GWASExplorerApp {
 
         // Update Manhattan plot
         if (this.manhattanPlot) {
+            console.log('Rendering Manhattan plot...');
             await this.manhattanPlot.render(plotData);
+            console.log('Manhattan plot rendered');
+        } else {
+            console.error('Manhattan plot not initialized');
         }
 
         // Update QQ plot
